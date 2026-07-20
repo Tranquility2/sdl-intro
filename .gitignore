@@ -1,0 +1,24 @@
+# Build output and fetched dependencies.
+build/
+.deps/
+
+# Local, non-source-controlled CMake preset overrides.
+CMakeUserPresets.json
+
+# Visual Studio / MSBuild output.
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+*.vcxproj.user
+.vs/
+out/
+
+# Editor and IDE state.
+.idea/
+.vscode/
+*.swp
+*~
+
+# Operating-system metadata.
+.DS_Store
+Thumbs.db
