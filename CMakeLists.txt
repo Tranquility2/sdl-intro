@@ -66,27 +66,46 @@ target_link_libraries(sdl_intro
         project_sanitizers
 )
 
-# Copy the assets next to the built executable so SDL_GetBasePath()/assets
-# resolves at runtime.
-add_custom_command(TARGET sdl_intro POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:sdl_intro>/assets
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/sdl-logo.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/OpenSans-Regular.ttf
-        $<TARGET_FILE_DIR:sdl_intro>/assets
-    COMMENT "Copying assets next to sdl_intro"
-    VERBATIM
-)
+# ---- Emscripten / WebAssembly ----------------------------------------------
+# When targeting Emscripten, emit a runnable .html shell and package the assets
+# into the virtual filesystem. Preloading assets at /assets keeps the runtime
+# lookup unchanged, because SDL_GetBasePath() returns "/" on Emscripten.
+if(EMSCRIPTEN)
+    set_target_properties(sdl_intro PROPERTIES SUFFIX ".html")
+    target_link_options(sdl_intro
+        PRIVATE
+            "-sALLOW_MEMORY_GROWTH=1"
+            "--preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+    )
+endif()
 
-# ---- Install ---------------------------------------------------------------
-# Install the executable and the assets together so SDL_GetBasePath()/assets
-# also works from an installed location.
-install(TARGETS sdl_intro RUNTIME DESTINATION bin)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION bin)
+# Copy the assets next to the built executable so SDL_GetBasePath()/assets
+# resolves at runtime. Native only: on the web the assets are packaged into the
+# virtual filesystem by the --preload-file link option above.
+if(NOT EMSCRIPTEN)
+    add_custom_command(TARGET sdl_intro POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:sdl_intro>/assets
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets/sdl-logo.png
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets/OpenSans-Regular.ttf
+            $<TARGET_FILE_DIR:sdl_intro>/assets
+        COMMENT "Copying assets next to sdl_intro"
+        VERBATIM
+    )
+
+    # ---- Install -----------------------------------------------------------
+    # Install the executable and the assets together so SDL_GetBasePath()/assets
+    # also works from an installed location.
+    install(TARGETS sdl_intro RUNTIME DESTINATION bin)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION bin)
+endif()
 
 # ---- Smoke test ------------------------------------------------------------
-if(BUILD_TESTING)
+# The native smoke test runs the executable directly. An Emscripten build emits
+# an .html target that CTest cannot launch, so the test is registered for native
+# builds only.
+if(BUILD_TESTING AND NOT EMSCRIPTEN)
     add_test(NAME intro-smoke COMMAND sdl_intro --smoke)
     set_tests_properties(intro-smoke PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=dummy"

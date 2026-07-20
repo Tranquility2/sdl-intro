@@ -124,6 +124,52 @@ jobs:
             build/mingw-release/assets
           if-no-files-found: error
 
+  # Required Ubuntu Emscripten/WebAssembly build. Proves the pinned static SDL
+  # stack compiles to WebAssembly and produces a runnable browser bundle. The
+  # .html target is not directly executable, so instead of CTest we assert the
+  # four bundle files exist and are non-empty, then upload them.
+  emscripten-web:
+    name: Ubuntu Emscripten (web-release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten SDK
+        uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984  # v16
+        with:
+          version: 6.0.3
+
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: .deps-web
+          key: deps-${{ runner.os }}-web-${{ env.DEPS_KEY }}
+
+      - name: Configure
+        run: cmake --preset web-release -DFETCHCONTENT_BASE_DIR=${{ github.workspace }}/.deps-web
+
+      - name: Build
+        run: cmake --build --preset web-release
+
+      - name: Verify WebAssembly bundle
+        run: |
+          dir=build/web-release
+          for f in sdl_intro.html sdl_intro.js sdl_intro.wasm sdl_intro.data; do
+            test -s "$dir/$f" || { echo "Missing or empty bundle file: $f"; exit 1; }
+          done
+          ls -l "$dir"/sdl_intro.{html,js,wasm,data}
+
+      - name: Upload WebAssembly bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdl_intro-web
+          path: |
+            build/web-release/sdl_intro.html
+            build/web-release/sdl_intro.js
+            build/web-release/sdl_intro.wasm
+            build/web-release/sdl_intro.data
+          if-no-files-found: error
+
   # Required Ubuntu AddressSanitizer/UndefinedBehaviorSanitizer job. Runs the
   # same smoke test with fail-fast sanitizer settings.
   ubuntu-asan-ubsan:

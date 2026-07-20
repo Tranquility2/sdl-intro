@@ -20,6 +20,11 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
     GIT_TAG bec9134a26c7d0f31b36d6083c25296e04cabff5  # release-3.4.4
     GIT_SHALLOW FALSE
+    # Only PNG is enabled, so fetch only the submodules libpng/zlib need. This
+    # avoids checking out the large unused format submodules (libjxl, aom,
+    # dav1d, libavif, libtiff, libwebp, jpeg), speeding up fresh checkouts.
+    GIT_SUBMODULES "external/libpng;external/zlib"
+    GIT_SUBMODULES_RECURSE FALSE
 )
 
 FetchContent_Declare(
@@ -27,6 +32,11 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
     GIT_TAG a1ce3670aec736ecbf0936c43f2f0cc53aa61e5b  # release-3.2.2
     GIT_SHALLOW FALSE
+    # HarfBuzz and PlutoSVG are disabled, so fetch only FreeType. Skips the large
+    # unused harfbuzz/plutosvg/plutovg submodules. RECURSE is off so FreeType's
+    # meson-only `dlg` submodule (unused by the CMake build) is not pulled.
+    GIT_SUBMODULES "external/freetype"
+    GIT_SUBMODULES_RECURSE FALSE
 )
 
 # Force static builds for the fetched dependencies regardless of the caller's

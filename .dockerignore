@@ -1,0 +1,19 @@
+# Keep the Docker build context small and reproducible: never send local build
+# output, fetched dependencies, VCS history, or editor state to the daemon.
+.git
+.gitignore
+build/
+.deps/
+
+# Editor and IDE state.
+.idea/
+.vscode/
+*.swp
+*~
+
+# Operating-system metadata.
+.DS_Store
+Thumbs.db
+
+# Local, non-source-controlled CMake preset overrides.
+CMakeUserPresets.json

@@ -1,0 +1,37 @@
+# Dockerfile.web — reproducible Emscripten/WebAssembly build of sdl_intro.
+#
+# The official Emscripten SDK image is pinned by both version tag and digest for
+# reproducibility. The repository is COPYed into the build context (not bind
+# mounted) so the workflow also works against remote Docker contexts. Build with
+# BuildKit and export only the deployable bundle:
+#
+#   DOCKER_BUILDKIT=1 docker build -f Dockerfile.web \
+#     --target export --output type=local,dest=build/web-dist .
+#
+# (see `make web`). EMSDK is provided by the base image, so the web-release
+# preset's toolchain resolves without emcmake.
+FROM emscripten/emsdk:6.0.3@sha256:bb0910e6a18bb9bd7cb31ae4ed40f9073148b78cb2cdb8ea8676454e0d85425c AS build
+
+WORKDIR /src
+
+# Copy the sources needed to configure and build. .dockerignore keeps .git,
+# build output, fetched deps, and editor state out of the context.
+COPY . .
+
+# Configure and build the web-release preset. FetchContent downloads are placed
+# in a BuildKit cache mount so repeat builds reuse the pinned SDL checkouts
+# instead of re-cloning them.
+RUN --mount=type=cache,target=/src/.deps \
+    cmake --preset web-release -DFETCHCONTENT_BASE_DIR=/src/.deps \
+ && cmake --build --preset web-release \
+ && mkdir -p /out \
+ && cp build/web-release/sdl_intro.html \
+       build/web-release/sdl_intro.js \
+       build/web-release/sdl_intro.wasm \
+       build/web-release/sdl_intro.data \
+       /out/
+
+# Export stage: contains only the deployable bundle so `--output type=local`
+# writes exactly the four files to the host.
+FROM scratch AS export
+COPY --from=build /out/ /

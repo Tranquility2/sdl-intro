@@ -54,6 +54,7 @@ All presets are defined in [`CMakePresets.json`](../CMakePresets.json).
 | `windows-msvc-debug`   | Windows       | Visual Studio 17 2022 (x64) | Debug |                                    |
 | `windows-msvc-release` | Windows       | Visual Studio 17 2022 (x64) | Release |                                    |
 | `mingw-release`        | Linux         | Ninja                  | Release    | Cross-compiles to Windows x86_64   |
+| `web-release`          | Linux / macOS | Unix Makefiles         | Release    | Emscripten/WebAssembly (needs emsdk)|
 
 The Unix presets carry a host condition that excludes Windows, and the MSVC
 presets carry the inverse condition, so `cmake --list-presets` only offers the
@@ -92,6 +93,8 @@ override it with `PRESET=release` (etc.).
 | `make test`      | Run the CTest smoke test for the `$(PRESET)` preset           |
 | `make sanitize`  | Configure, build, and test the `asan-ubsan` preset            |
 | `make mingw`     | Cross-build a static Windows `.exe` with MinGW-w64            |
+| `make web`       | Build the WebAssembly bundle in Docker into `build/web-dist`  |
+| `make web-serve` | Serve `build/web-dist` over HTTP for browser review          |
 | `make clean`     | Remove the `build/` directory                                 |
 | `make help`      | List the available targets                                    |
 
@@ -226,6 +229,92 @@ copied to `build/mingw-release/assets/`. The `.exe` uses the Windows GUI
 subsystem, so launching it does not open a second console window. It targets
 Windows and does not run on the Linux host.
 
+## WebAssembly build (Emscripten)
+
+The app builds to WebAssembly and runs unchanged in a browser: SDL3 3.4.12
+supports Emscripten and the `SDL_MAIN_USE_CALLBACKS` application needs no source
+changes. On Emscripten `SDL_GetBasePath()` returns `/`, so the assets are
+packaged into the virtual filesystem at `/assets` and the existing
+`assets/<file>` lookup resolves unchanged.
+
+The `web-release` preset uses **Unix Makefiles** (the official Emscripten
+container ships no Ninja) and the emsdk CMake toolchain at
+`$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake`. The
+Emscripten target block in [`CMakeLists.txt`](../CMakeLists.txt) applies, only to
+`sdl_intro`:
+
+- `SUFFIX ".html"` so the build emits a runnable HTML shell.
+- `-sALLOW_MEMORY_GROWTH=1`.
+- `--preload-file <source>/assets@/assets` to package the assets.
+
+Native `POST_BUILD` asset copying and the install rules are guarded off for
+Emscripten; web assets come only from preload packaging.
+
+### Local emsdk build
+
+With an activated emsdk (`source /path/to/emsdk/emsdk_env.sh`, which exports
+`EMSDK`):
+
+```sh
+cmake --preset web-release
+cmake --build --preset web-release
+```
+
+This emits four files into `build/web-release/`:
+
+| File               | Purpose                                    |
+| ------------------ | ------------------------------------------ |
+| `sdl_intro.html`   | HTML shell / entry point                   |
+| `sdl_intro.js`     | JavaScript loader/glue                     |
+| `sdl_intro.wasm`   | Compiled WebAssembly module                |
+| `sdl_intro.data`   | Preloaded virtual filesystem (the assets)  |
+
+The preset resolves the toolchain from `EMSDK` directly, so it works both after
+`source emsdk_env.sh` and inside the official Docker image **without** `emcmake`.
+
+### One-command Docker build
+
+If you do not have emsdk installed, build the bundle reproducibly inside the
+official Emscripten container:
+
+```sh
+make web
+```
+
+This runs a BuildKit build of [`Dockerfile.web`](../Dockerfile.web) and exports
+exactly the four bundle files to `build/web-dist/`. The Dockerfile:
+
+- Pins `emscripten/emsdk:6.0.3` by both tag and digest
+  (`sha256:bb0910e6a18bb9bd7cb31ae4ed40f9073148b78cb2cdb8ea8676454e0d85425c`).
+- `COPY`s the repository as build context rather than bind mounting it, so the
+  workflow works against **remote Docker contexts** as well as local ones.
+- Uses a BuildKit cache mount for `FetchContent` downloads so repeat builds
+  reuse the pinned SDL checkouts.
+- Exports the bundle through a `scratch` stage with `--output type=local`, so the
+  files land on the host with host ownership and no root-owned build tree is left
+  behind.
+
+`.dockerignore` keeps `.git`, `build/`, `.deps/`, editor state, and generated
+output out of the build context.
+
+### Serving and viewing
+
+Browsers refuse to fetch the `.wasm`/`.data` files over `file://`, so the bundle
+must be served over **HTTP**. After `make web`:
+
+```sh
+make web-serve   # serves build/web-dist at http://localhost:8000/sdl_intro.html
+```
+
+`make web-serve` is a foreground Python HTTP server (`python3 -m http.server`);
+stop it with Ctrl-C. A missing `favicon.ico` (404) is harmless.
+
+### Limitation
+
+The native `intro-smoke` CTest is **not** registered for Emscripten because the
+`.html` target is not directly executable by CTest. Runtime behavior on the web
+is validated manually (and was verified in headless Chrome during development).
+
 ## Continuous integration
 
 CI is defined in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
@@ -236,6 +325,7 @@ SDL/image/ttf versions) via `-DFETCHCONTENT_BASE_DIR`.
 | ------------------ | --------------- | ---------------------------------------------------------- |
 | `native-release`   | `ubuntu-latest`, `macos-latest`, `windows-2022` | Native Release build + `intro-smoke` on Linux (GCC), macOS (AppleClang), Windows (MSVC) |
 | `mingw-cross`      | `ubuntu-latest` | Linux→Windows cross-build and artifact verification        |
+| `emscripten-web`   | `ubuntu-latest` | Emscripten/WebAssembly build and bundle verification       |
 | `ubuntu-asan-ubsan`| `ubuntu-latest` | ASan/UBSan Debug build + smoke test with fail-fast options |
 
 The native and ASan jobs run `ctest`. The MinGW job cannot run the produced
@@ -249,13 +339,25 @@ The native and ASan jobs run `ctest`. The MinGW job cannot run the produced
   `build/mingw-release/sdl_intro.exe` and `build/mingw-release/assets` (fails if
   no files are found).
 
+The `emscripten-web` job sets up the Emscripten SDK with
+`emscripten-core/setup-emsdk` pinned to the v16 commit
+`4528d102f7230f0e7b276855c01ea1159be0e984` and SDK version `6.0.3`, builds the
+`web-release` preset, and (since the `.html` target is not executable by CTest)
+asserts that all four bundle files (`sdl_intro.html`, `.js`, `.wasm`, `.data`)
+exist and are non-empty before uploading them as artifact `sdl_intro-web`. It
+uses a separate FetchContent cache path/key (`.deps-web`,
+`deps-<os>-web-<versions>`) from the native and MinGW jobs. Pages deployment is
+intentionally not wired up yet.
+
 ## Project structure
 
 ```
 sdl-intro/
 ├── CMakeLists.txt              # Build logic, target, assets, smoke test
-├── CMakePresets.json           # Presets (debug/release/asan-ubsan/msvc/mingw)
+├── CMakePresets.json           # Presets (debug/release/asan-ubsan/msvc/mingw/web)
 ├── Makefile                    # Convenience wrapper over the presets
+├── Dockerfile.web              # Reproducible Emscripten/WebAssembly build
+├── .dockerignore               # Keeps the Docker build context minimal
 ├── cmake/
 │   ├── Dependencies.cmake      # Pinned FetchContent declarations
 │   ├── ProjectWarnings.cmake   # project_warnings INTERFACE target
@@ -281,9 +383,10 @@ sdl-intro/
 
 ## Non-goals (version 1)
 
-No unit-test framework, packaging workflows, mobile (Android/iOS) targets, web
-(Emscripten) targets, audio, or additional media formats. SDL3's main callbacks
-keep those feasible for a later version.
+No unit-test framework, packaging workflows, mobile (Android/iOS) targets,
+GitHub Pages deployment, audio, or additional media formats. WebAssembly
+(Emscripten) is now supported; the SDL3 main callbacks keep the remaining items
+feasible for a later version.
 
 ## Licensing and attribution
 

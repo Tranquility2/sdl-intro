@@ -37,6 +37,10 @@ need SDL's development packages first — see the developer guide below.
 | macOS           | AppleClang | Native desktop build                  |
 | Windows         | MSVC       | Native desktop build                  |
 | Linux → Windows | MinGW-w64  | Cross-compiled, self-contained `.exe` |
+| Web             | Emscripten | WebAssembly bundle, runs in a browser |
+
+See the developer guide for the WebAssembly local emsdk and one-command Docker
+workflows.
 
 ## Documentation
 
