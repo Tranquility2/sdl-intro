@@ -75,6 +75,55 @@ jobs:
           path: build/**/Testing/**
           if-no-files-found: ignore
 
+  # Required Linux-to-Windows MinGW-w64 cross-build. Proves the pinned static
+  # SDL stack cross-compiles to a self-contained Windows x86_64 executable. The
+  # produced .exe cannot run on the Linux runner, so there is no CTest step;
+  # instead we assert the binary format and that runtime assets ship beside it.
+  mingw-cross:
+    name: Ubuntu MinGW-w64 cross (mingw-release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW-w64 cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ runner.os }}-mingw-${{ env.DEPS_KEY }}
+
+      - name: Configure
+        run: cmake --preset mingw-release -DFETCHCONTENT_BASE_DIR=${{ github.workspace }}/.deps
+
+      - name: Build
+        run: cmake --build --preset mingw-release
+
+      - name: Verify Windows executable and assets
+        run: |
+          exe=build/mingw-release/sdl_intro.exe
+          test -f "$exe" || { echo "Missing $exe"; exit 1; }
+          file "$exe"
+          file "$exe" | grep -q 'PE32+ executable (GUI)' || {
+            echo "Expected a PE32+ GUI (Windows x86_64) executable"; exit 1; }
+          for asset in assets/sdl-logo.png assets/OpenSans-Regular.ttf; do
+            test -f "build/mingw-release/$asset" || {
+              echo "Missing runtime asset: $asset"; exit 1; }
+          done
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdl_intro-windows-x86_64
+          path: |
+            build/mingw-release/sdl_intro.exe
+            build/mingw-release/assets
+          if-no-files-found: error
+
   # Required Ubuntu AddressSanitizer/UndefinedBehaviorSanitizer job. Runs the
   # same smoke test with fail-fast sanitizer settings.
   ubuntu-asan-ubsan:

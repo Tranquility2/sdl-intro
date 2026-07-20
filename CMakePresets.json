@@ -74,6 +74,20 @@
       "name": "windows-msvc-release",
       "displayName": "Windows MSVC Release",
       "inherits": "windows-base"
+    },
+    {
+      "name": "mingw-release",
+      "displayName": "MinGW-w64 cross Release (Ninja)",
+      "inherits": "unix-base",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/mingw-w64-x86_64.cmake",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -98,6 +112,10 @@
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
       "configuration": "Release"
+    },
+    {
+      "name": "mingw-release",
+      "configurePreset": "mingw-release"
     }
   ],
   "testPresets": [

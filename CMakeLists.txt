@@ -53,7 +53,9 @@ include(ProjectWarnings)
 include(ProjectSanitizers)
 
 # ---- Executable ------------------------------------------------------------
-add_executable(sdl_intro src/main.cpp)
+# WIN32 selects the GUI subsystem on Windows, avoiding a second console window
+# when the application is launched from Explorer. It has no effect elsewhere.
+add_executable(sdl_intro WIN32 src/main.cpp)
 target_compile_features(sdl_intro PRIVATE cxx_std_17)
 target_link_libraries(sdl_intro
     PRIVATE

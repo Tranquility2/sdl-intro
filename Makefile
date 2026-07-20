@@ -3,7 +3,7 @@
 # commands that invoke CMake presets. It never contains compiler flags, linker
 # flags, dependency versions, or platform detection.
 
-.PHONY: configure build run test sanitize clean help
+.PHONY: configure build run test sanitize mingw clean help
 
 # Default preset used by configure/build/run/test.
 PRESET ?= debug
@@ -16,9 +16,10 @@ help:
 	@echo "  make run         Build and run sdl_intro from the '$(PRESET)' preset"
 	@echo "  make test        Run the CTest smoke test for the '$(PRESET)' preset"
 	@echo "  make sanitize    Configure, build, and test the 'asan-ubsan' preset"
+	@echo "  make mingw       Cross-build a static Windows .exe with MinGW-w64"
 	@echo "  make clean       Remove the build/ directory"
 	@echo ""
-	@echo "Presets (need Ninja on Linux/macOS): debug, release, asan-ubsan"
+	@echo "Presets (need Ninja on Linux/macOS): debug, release, asan-ubsan, mingw-release"
 
 configure:
 	cmake --preset $(PRESET)
@@ -36,6 +37,10 @@ sanitize:
 	cmake --preset asan-ubsan
 	cmake --build --preset asan-ubsan
 	ctest --preset asan-ubsan
+
+mingw:
+	cmake --preset mingw-release
+	cmake --build --preset mingw-release
 
 clean:
 	rm -rf build
