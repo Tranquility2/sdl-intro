@@ -69,13 +69,17 @@ target_link_libraries(sdl_intro
 # ---- Emscripten / WebAssembly ----------------------------------------------
 # When targeting Emscripten, emit a runnable .html shell and package the assets
 # into the virtual filesystem. Preloading assets at /assets keeps the runtime
-# lookup unchanged, because SDL_GetBasePath() returns "/" on Emscripten.
+# lookup unchanged, because SDL_GetBasePath() returns "/" on Emscripten. The
+# project-owned presentation shell (web/shell.html) replaces Emscripten's default
+# template via --shell-file.
 if(EMSCRIPTEN)
     set_target_properties(sdl_intro PROPERTIES SUFFIX ".html")
     target_link_options(sdl_intro
         PRIVATE
             "-sALLOW_MEMORY_GROWTH=1"
+            "-sEXPORTED_RUNTIME_METHODS=requestFullscreen"
             "--preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+            "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
     )
 endif()
 

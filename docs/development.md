@@ -245,10 +245,47 @@ Emscripten target block in [`CMakeLists.txt`](../CMakeLists.txt) applies, only t
 
 - `SUFFIX ".html"` so the build emits a runnable HTML shell.
 - `-sALLOW_MEMORY_GROWTH=1`.
+- `-sEXPORTED_RUNTIME_METHODS=requestFullscreen` so the custom shell can call
+  `Module.requestFullscreen(false, false)`.
 - `--preload-file <source>/assets@/assets` to package the assets.
+- `--shell-file <source>/web/shell.html` to render the bundle inside the
+  project-owned presentation shell instead of Emscripten's default template.
 
 Native `POST_BUILD` asset copying and the install rules are guarded off for
 Emscripten; web assets come only from preload packaging.
+
+### Presentation shell (`web/shell.html`)
+
+[`web/shell.html`](../web/shell.html) is the project-owned Emscripten shell that
+Emscripten expands at link time, substituting its generated loader for the
+required `{{{ SCRIPT }}}` placeholder. It is a single self-contained HTML5
+document with all CSS and JavaScript inline — no external fonts, stylesheets,
+scripts, or analytics — and it deliberately omits Emscripten's default branding
+and console textarea. Its structure is:
+
+- A centered header (`SDL Intro` plus the subtitle *A minimal SDL3 C++ demo
+  running in WebAssembly.*) over a dark background matching the application's
+  render clear color.
+- A `.demo-card` holding a `role="status"` element, the
+  `#canvas` element (720×480 logical resolution), and a `#fullscreen` button.
+  The canvas is **responsive** — it scales to `min(100%, 720px)` wide with a
+  fixed `3 / 2` aspect ratio and a visible keyboard-focus outline — so the demo
+  fits narrow viewports without distortion.
+- A footer with visible attribution: links to the GitHub source and
+  `THIRD_PARTY_NOTICES.md`, the Open Sans Apache-2.0 notice, and the SDL
+  trademark / non-affiliation disclaimer.
+
+Runtime behavior is driven by a `Module` object defined before the placeholder:
+
+- `Module.canvas` binds the SDL surface to `#canvas`; `print`/`printErr` forward
+  to `console.log`/`console.error`.
+- `setStatus(text)` shows non-empty **loading text** and hides the status
+  element when empty; `monitorRunDependencies(left)` reports remaining downloads
+  while assets load.
+- `onRuntimeInitialized` enables the fullscreen button (disabled until then),
+  which calls `Module.requestFullscreen(false, false)`.
+- `window.onerror` surfaces a runtime **error state** (`data-state="error"`)
+  directing the viewer to the browser console.
 
 ### Local emsdk build
 
@@ -366,6 +403,8 @@ sdl-intro/
 │       └── mingw-w64-x86_64.cmake
 ├── src/
 │   └── main.cpp                # SDL3 main-callbacks demo + --smoke mode
+├── web/
+│   └── shell.html              # Project-owned Emscripten presentation shell
 ├── assets/                     # sdl-logo.png, OpenSans-Regular.ttf
 ├── licenses/                   # Apache-2.0.txt (Open Sans)
 ├── .github/workflows/ci.yml    # CI matrix
