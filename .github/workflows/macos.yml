@@ -1,0 +1,44 @@
+name: macOS CI
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEPS_KEY: sdl3-3.4.12-image-3.4.4-ttf-3.2.2
+
+jobs:
+  native-release:
+    name: macOS AppleClang (release)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ runner.os }}-${{ env.DEPS_KEY }}
+
+      - name: Configure
+        run: cmake --preset release -DFETCHCONTENT_BASE_DIR=${{ github.workspace }}/.deps
+
+      - name: Build
+        run: cmake --build --preset release
+
+      - name: Test
+        run: ctest --preset release --output-on-failure
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-macos-release
+          path: build/**/Testing/**
+          if-no-files-found: ignore

@@ -16,9 +16,8 @@ env:
   DEPS_KEY: sdl3-3.4.12-image-3.4.4-ttf-3.2.2
 
 jobs:
-  # Required native Release matrix: Linux (GCC), macOS (AppleClang), Windows
-  # (MSVC). Proves the pinned static SDL stack builds and the smoke test passes
-  # on each desktop platform.
+  # Required native Release matrix: Linux (GCC) and Windows (MSVC). macOS runs
+  # only through the separate, manually dispatched macos.yml workflow.
   native-release:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -28,9 +27,6 @@ jobs:
         include:
           - name: Ubuntu GCC (release)
             os: ubuntu-latest
-            preset: release
-          - name: macOS AppleClang (release)
-            os: macos-latest
             preset: release
           - name: Windows MSVC (release)
             os: windows-2022
@@ -47,10 +43,6 @@ jobs:
             libxfixes-dev libxss-dev libxtst-dev libwayland-dev \
             libxkbcommon-dev wayland-protocols libegl1-mesa-dev \
             libgl1-mesa-dev libgles2-mesa-dev libpulse-dev libasound2-dev
-
-      - name: Install Ninja (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ninja
 
       - name: Cache fetched dependencies
         uses: actions/cache@v4

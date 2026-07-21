@@ -354,16 +354,20 @@ is validated manually (and was verified in headless Chrome during development).
 
 ## Continuous integration
 
-CI is defined in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
-FetchContent downloads are cached under `.deps` (keyed on the pinned
+Automatic CI is defined in
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). The macOS build is
+kept separate in [`.github/workflows/macos.yml`](../.github/workflows/macos.yml)
+and runs only when manually started with GitHub Actions' **Run workflow**
+control. FetchContent downloads are cached under `.deps` (keyed on the pinned
 SDL/image/ttf versions) via `-DFETCHCONTENT_BASE_DIR`.
 
 | Job                | Runner          | What it proves                                              |
 | ------------------ | --------------- | ---------------------------------------------------------- |
-| `native-release`   | `ubuntu-latest`, `macos-latest`, `windows-2022` | Native Release build + `intro-smoke` on Linux (GCC), macOS (AppleClang), Windows (MSVC) |
+| `native-release`   | `ubuntu-latest`, `windows-2022` | Automatic native Release build + `intro-smoke` on Linux (GCC) and Windows (MSVC) |
 | `mingw-cross`      | `ubuntu-latest` | Linux→Windows cross-build and artifact verification        |
 | `emscripten-web`   | `ubuntu-latest` | Emscripten/WebAssembly build and bundle verification       |
 | `ubuntu-asan-ubsan`| `ubuntu-latest` | ASan/UBSan Debug build + smoke test with fail-fast options |
+| `native-release` (`macos.yml`) | `macos-latest` | Manual native Release build + `intro-smoke` on macOS (AppleClang) |
 
 The native and ASan jobs run `ctest`. The MinGW job cannot run the produced
 `.exe` on Linux, so instead of CTest it:
@@ -407,7 +411,9 @@ sdl-intro/
 │   └── shell.html              # Project-owned Emscripten presentation shell
 ├── assets/                     # sdl-logo.png, OpenSans-Regular.ttf
 ├── licenses/                   # Apache-2.0.txt (Open Sans)
-├── .github/workflows/ci.yml    # CI matrix
+├── .github/workflows/
+│   ├── ci.yml                  # Automatic CI matrix
+│   └── macos.yml               # Manually dispatched macOS CI
 ├── README.md
 └── docs/development.md         # This guide
 ```
