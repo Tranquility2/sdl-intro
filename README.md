@@ -7,7 +7,11 @@ project setup — pinned dependencies, strict project-owned warnings, sanitizers
 a headless smoke test, and cross-platform CI — without any game-specific
 complexity.
 
-**[Run the live WebAssembly demo](https://tranquility2.github.io/sdl-intro/)**
+## Live demo
+
+Run SDL Intro directly in your browser:
+
+**[Launch the WebAssembly demo →](https://tranquility2.github.io/sdl-intro/)**
 
 > This template is **not affiliated with, sponsored by, or endorsed by** the
 > SDL project. "SDL" and the SDL logo are trademarks of their respective
