@@ -149,6 +149,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 SDL_AppResult SDL_AppIterate(void* appstate) {
     auto* state = static_cast<AppState*>(appstate);
 
+    int output_width = 0;
+    int output_height = 0;
+    if (!SDL_GetRenderOutputSize(state->renderer, &output_width, &output_height)) {
+        return Fail("SDL_GetRenderOutputSize");
+    }
+
     const Uint64 now = SDL_GetTicks();
     float dt = static_cast<float>(now - state->last_ms) / 1000.0f;
     state->last_ms = now;
@@ -156,34 +162,48 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
         dt = 0.05f;  // Clamp large stalls so the logo never teleports.
     }
 
-    const float min_y = state->title_h + 24.0f;
-    const float max_x = static_cast<float>(kWindowWidth) - state->logo_w;
-    const float max_y = static_cast<float>(kWindowHeight) - state->logo_h;
+    const float render_width = static_cast<float>(output_width);
+    const float render_height = static_cast<float>(output_height);
+    const float max_x = SDL_max(0.0f, render_width - state->logo_w);
+    const float max_y = SDL_max(0.0f, render_height - state->logo_h);
+    const float min_y = SDL_min(state->title_h + 24.0f, max_y);
 
     state->logo_x += state->vel_x * dt;
     state->logo_y += state->vel_y * dt;
 
-    if (state->logo_x <= 0.0f) {
+    if (max_x == 0.0f) {
         state->logo_x = 0.0f;
-        state->vel_x = -state->vel_x;
+    } else if (state->logo_x <= 0.0f) {
+        state->logo_x = 0.0f;
+        if (state->vel_x < 0.0f) {
+            state->vel_x = -state->vel_x;
+        }
     } else if (state->logo_x >= max_x) {
         state->logo_x = max_x;
-        state->vel_x = -state->vel_x;
+        if (state->vel_x > 0.0f) {
+            state->vel_x = -state->vel_x;
+        }
     }
 
-    if (state->logo_y <= min_y) {
+    if (max_y == min_y) {
         state->logo_y = min_y;
-        state->vel_y = -state->vel_y;
+    } else if (state->logo_y <= min_y) {
+        state->logo_y = min_y;
+        if (state->vel_y < 0.0f) {
+            state->vel_y = -state->vel_y;
+        }
     } else if (state->logo_y >= max_y) {
         state->logo_y = max_y;
-        state->vel_y = -state->vel_y;
+        if (state->vel_y > 0.0f) {
+            state->vel_y = -state->vel_y;
+        }
     }
 
     SDL_SetRenderDrawColor(state->renderer, 15, 20, 30, 255);
     SDL_RenderClear(state->renderer);
 
     const SDL_FRect title_dst = {
-        (static_cast<float>(kWindowWidth) - state->title_w) / 2.0f, 12.0f,
+        SDL_max(0.0f, (render_width - state->title_w) / 2.0f), 12.0f,
         state->title_w, state->title_h};
     SDL_RenderTexture(state->renderer, state->title_texture, nullptr, &title_dst);
 

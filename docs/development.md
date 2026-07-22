@@ -192,8 +192,10 @@ renderer handles. See [`src/main.cpp`](../src/main.cpp).
   and returns `SDL_APP_SUCCESS` before any window/renderer is created; otherwise
   it creates the window and renderer, builds textures, and returns
   `SDL_APP_CONTINUE`.
-- `SDL_AppIterate` — advances the bouncing logo with delta-time (clamped to
-  avoid teleporting on stalls), clears, draws the title and logo, and presents.
+- `SDL_AppIterate` — queries the current renderer output size, advances and
+  clamps the bouncing logo within those live bounds with delta-time (clamped to
+  avoid teleporting on stalls), centers the title, draws, and presents. This
+  keeps browser fullscreen and other output-size changes correct.
 - `SDL_AppEvent` — exits cleanly on quit or the **Escape** key.
 - `SDL_AppQuit` — destroys textures, font, renderer, and window, quits TTF, and
   frees `AppState`. SDL calls `SDL_Quit()` itself afterward.
