@@ -387,8 +387,62 @@ The `emscripten-web` job sets up the Emscripten SDK with
 asserts that all four bundle files (`sdl_intro.html`, `.js`, `.wasm`, `.data`)
 exist and are non-empty before uploading them as artifact `sdl_intro-web`. It
 uses a separate FetchContent cache path/key (`.deps-web`,
-`deps-<os>-web-<versions>`) from the native and MinGW jobs. Pages deployment is
-intentionally not wired up yet.
+`deps-<os>-web-<versions>`) from the native and MinGW jobs.
+
+## GitHub Pages deployment
+
+The WebAssembly bundle is published as a live demo at
+**<https://tranquility2.github.io/sdl-intro/>**.
+
+Deployment is defined in a **separate** workflow,
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml), rather than in
+`ci.yml`. Keeping it separate isolates the elevated Pages write and OIDC
+permissions from the pull-request CI matrix.
+
+- **Triggers**: pushes to `main` and manual **Run workflow**
+  (`workflow_dispatch`) only. There is deliberately **no** `pull_request`
+  trigger, so pull requests build in `ci.yml` but never deploy.
+- **Permission isolation**: the workflow's top-level permissions are
+  `contents: read`. Only the `deploy` job opts into `pages: write` and
+  `id-token: write`; the `build` job has `contents: read` and `pages: read` so
+  `configure-pages` can read the site's metadata without receiving any write
+  permission. A `concurrency` group `pages` with `cancel-in-progress: false`
+  lets an in-progress deployment finish cleanly.
+
+The `build` job (on `ubuntu-latest`) mirrors the `emscripten-web` CI job — same
+pinned `emscripten-core/setup-emsdk` v16 commit, SDK `6.0.3`, `.deps-web`
+cache, and `web-release` preset — then **stages** the bundle into `_site`:
+
+- Verifies the four generated files (`sdl_intro.html`, `.js`, `.wasm`, `.data`)
+  exist and are non-empty.
+- Copies all four into `_site/`, then copies `sdl_intro.html` to
+  `_site/index.html` so the project root (`/sdl-intro/`) opens automatically
+  while the sibling-relative `.js`, `.wasm`, and `.data` references still
+  resolve.
+- Re-verifies all five staged files are non-empty.
+
+No `.nojekyll` is created and the generated bundle contents are never altered.
+The staged `_site` is uploaded as the Pages artifact.
+
+Privileged Pages actions are pinned to full commit SHAs:
+
+| Action | Pinned commit |
+| ------ | ------------- |
+| `actions/configure-pages` | `45bfe0192ca1faeb007ade9deae92b16b8254a0d` (v6) |
+| `actions/upload-pages-artifact` | `fc324d3547104276b827a68afc52ff2a11cc49c9` (v5) |
+| `actions/deploy-pages` | `cd2ce8fcbc39b97be8ca5fce6e763baed58fa128` (v5) |
+
+The `deploy` job `needs: build`, runs on `ubuntu-latest`, uses the
+`github-pages` environment, and exposes
+`${{ steps.deployment.outputs.page_url }}` as the environment URL. Its single
+`actions/deploy-pages` step (id `deployment`) publishes the uploaded artifact.
+
+**Deployment history and rollback**: every push to `main` and manual dispatch
+appears as a run under the **Pages** workflow in the Actions tab, and each
+successful deployment is listed in the **github-pages** environment's
+deployment history. To roll back, open a previous **successful** Pages workflow
+run and use **Re-run all jobs**; re-running rebuilds that commit's bundle and
+redeploys it, restoring the earlier site without a new commit.
 
 ## Project structure
 
@@ -413,7 +467,8 @@ sdl-intro/
 ├── licenses/                   # Apache-2.0.txt (Open Sans)
 ├── .github/workflows/
 │   ├── ci.yml                  # Automatic CI matrix
-│   └── macos.yml               # Manually dispatched macOS CI
+│   ├── macos.yml               # Manually dispatched macOS CI
+│   └── pages.yml               # GitHub Pages build and deployment
 ├── README.md
 └── docs/development.md         # This guide
 ```
@@ -429,8 +484,9 @@ sdl-intro/
 ## Non-goals (version 1)
 
 No unit-test framework, packaging workflows, mobile (Android/iOS) targets,
-GitHub Pages deployment, audio, or additional media formats. WebAssembly
-(Emscripten) is now supported; the SDL3 main callbacks keep the remaining items
+custom domains, analytics, threaded (COOP/COEP) WebAssembly, audio, or
+additional media formats. WebAssembly (Emscripten) is now supported and
+published to GitHub Pages; the SDL3 main callbacks keep the remaining items
 feasible for a later version.
 
 ## Licensing and attribution

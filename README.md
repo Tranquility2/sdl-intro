@@ -7,6 +7,8 @@ project setup — pinned dependencies, strict project-owned warnings, sanitizers
 a headless smoke test, and cross-platform CI — without any game-specific
 complexity.
 
+**[Run the live WebAssembly demo](https://tranquility2.github.io/sdl-intro/)**
+
 > This template is **not affiliated with, sponsored by, or endorsed by** the
 > SDL project. "SDL" and the SDL logo are trademarks of their respective
 > owners; the bundled logo is used referentially only.
@@ -37,7 +39,7 @@ need SDL's development packages first — see the developer guide below.
 | macOS           | AppleClang | Native desktop build                  |
 | Windows         | MSVC       | Native desktop build                  |
 | Linux → Windows | MinGW-w64  | Cross-compiled, self-contained `.exe` |
-| Web             | Emscripten | WebAssembly bundle, runs in a browser |
+| Web             | Emscripten | [Live WebAssembly demo](https://tranquility2.github.io/sdl-intro/) |
 
 See the developer guide for the WebAssembly local emsdk and one-command Docker
 workflows.

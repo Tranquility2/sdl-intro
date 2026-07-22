@@ -1,0 +1,93 @@
+name: Pages
+
+# Deploy the WebAssembly demo to GitHub Pages. This workflow is intentionally
+# separate from ci.yml so that Pages write and OIDC permissions stay isolated
+# from the pull-request CI matrix. Pull requests never trigger a deployment.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege at the workflow level: only the deploy job below opts into the
+# elevated pages/id-token permissions it needs.
+permissions:
+  contents: read
+
+# Allow one Pages deployment at a time. Do not cancel an in-progress deployment
+# so a running publish always finishes cleanly.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # Same shared, cacheable FetchContent location and pins used by ci.yml.
+  DEPS_KEY: sdl3-3.4.12-image-3.4.4-ttf-3.2.2
+
+jobs:
+  # Build the WebAssembly bundle and stage it as the Pages artifact. This job
+  # runs with the workflow-scoped read-only permissions above.
+  build:
+    name: Build web bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten SDK
+        uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984  # v16
+        with:
+          version: 6.0.3
+
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: .deps-web
+          key: deps-${{ runner.os }}-web-${{ env.DEPS_KEY }}
+
+      - name: Configure
+        run: cmake --preset web-release -DFETCHCONTENT_BASE_DIR=${{ github.workspace }}/.deps-web
+
+      - name: Build
+        run: cmake --build --preset web-release
+
+      - name: Stage _site
+        run: |
+          src=build/web-release
+          for f in sdl_intro.html sdl_intro.js sdl_intro.wasm sdl_intro.data; do
+            test -s "$src/$f" || { echo "Missing or empty bundle file: $f"; exit 1; }
+          done
+          mkdir -p _site
+          cp "$src/sdl_intro.html" "$src/sdl_intro.js" \
+             "$src/sdl_intro.wasm" "$src/sdl_intro.data" _site/
+          cp _site/sdl_intro.html _site/index.html
+          for f in index.html sdl_intro.html sdl_intro.js sdl_intro.wasm sdl_intro.data; do
+            test -s "_site/$f" || { echo "Missing or empty staged file: $f"; exit 1; }
+          done
+          ls -l _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5
+        with:
+          path: _site
+
+  # Publish the staged artifact. Only this job receives the elevated permissions
+  # required to deploy, and only for pushes to main or manual dispatch.
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128  # v5
