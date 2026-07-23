@@ -273,8 +273,8 @@ and console textarea. Its structure is:
   The canvas is **responsive** — it scales to `min(100%, 720px)` wide with a
   fixed `3 / 2` aspect ratio and a visible keyboard-focus outline — so the demo
   fits narrow viewports without distortion.
-- A footer with visible attribution: links to the GitHub source and
-  `THIRD_PARTY_NOTICES.md`, the Open Sans Apache-2.0 notice, and the SDL
+- A footer with visible attribution: a prominent project-owned GitHub banner,
+  a `THIRD_PARTY_NOTICES.md` link, the Open Sans Apache-2.0 notice, and the SDL
   trademark / non-affiliation disclaimer.
 
 Runtime behavior is driven by a `Module` object defined before the placeholder:
